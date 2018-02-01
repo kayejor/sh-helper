@@ -1,0 +1,65 @@
+body {
+    background-color: gray;
+}
+#name {
+    text-align: center;
+    border: none;
+    font-size: 120px;
+    border-radius: 50px;
+    padding: 15px 32px;
+    margin: 20px;
+    text-transform: uppercase;
+    width:90%;
+}
+.button {
+    background-color: green;
+    color: white;
+    border: none;
+    text-align: center;
+    font-size: 140px;
+    padding: 15px 32px;
+    margin: 4px 2px;
+    width: 100%;
+    border-radius: 50px;
+}
+
+#libBtn {
+    background-color: #7070f0;;
+}
+
+#fascBtn {
+    background-color: #f07070;
+}
+
+#hitBtn {
+    background-color: #c07070;
+}
+
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+li {
+    margin: 5px;
+    background: #c0c0c0;
+    text-align: center;
+    font-size: 90px;
+    width: 100%;
+    color: #303030;
+    border-radius: 50px;
+    text-transform: uppercase;
+}
+
+.liberal {
+    background-color: #7070f0;
+}
+
+.hitler {
+    background-color: #c07070;
+}
+
+.fascist {
+    background-color: #f07070;
+}
