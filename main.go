@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"os"
 
 	"github.com/gorilla/websocket"
 )
@@ -21,11 +22,12 @@ var players []Player
 var playersMux sync.Mutex
 
 func main() {
+	port := os.Getenv("PORT")
 	fs := http.FileServer(http.Dir("public"))
 	http.HandleFunc("/websocket", handleConnections)
 	http.Handle("/", fs)
 	rand.Seed(time.Now().UnixNano())
-	http.ListenAndServe(":3000", nil)
+	http.ListenAndServe(":" + port, nil)
 }
 
 var upgrader = websocket.Upgrader{

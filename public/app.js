@@ -1,6 +1,7 @@
 function myWebsocketStart(role)
 {
-    var ws = new WebSocket("ws://10.0.0.146:3000/websocket");
+	console.log(location.host);
+    var ws = new WebSocket("ws://" + location.host + "/websocket");
 
     ws.onopen = function() {
         var name = document.getElementById("name").value;
