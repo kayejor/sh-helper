@@ -23,7 +23,8 @@ function myWebsocketStart()
     {
         if(evt.data == "Not enough players" || 
         evt.data == "Game full" ||
-        evt.data == "Game started") {
+        evt.data == "Game started" ||
+        evt.data == "Duplicate name") {
             alert(evt.data);
         } else {
             var personList = document.getElementById("personList");
