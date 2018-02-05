@@ -30,40 +30,9 @@ func main() {
 	http.Handle("/", fs)
 	http.HandleFunc("/websocket", handleConnections)
 	rand.Seed(time.Now().UnixNano())
-	populateTempData() //temporary!
 	fmt.Println("Server starting on port " + port)
 	http.ListenAndServe(":"+port, nil)
 	fmt.Println("Server stopped")
-}
-
-func populateTempData() {
-	player1 := Player{
-		ws:   nil,
-		name: "A",
-		role: "",
-	}
-	players = append(players, &player1)
-
-	player2 := Player{
-		ws:   nil,
-		name: "B",
-		role: "",
-	}
-	players = append(players, &player2)
-
-	player3 := Player{
-		ws:   nil,
-		name: "C",
-		role: "",
-	}
-	players = append(players, &player3)
-
-	player4 := Player{
-		ws:   nil,
-		name: "D",
-		role: "",
-	}
-	players = append(players, &player4)
 }
 
 var upgrader = websocket.Upgrader{
@@ -173,7 +142,6 @@ func connectionCount() int {
 			result++
 		}
 	}
-	fmt.Printf("%d", result)
 	return result
 }
 
