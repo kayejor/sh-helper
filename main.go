@@ -231,7 +231,11 @@ func createHTMLListForPlayerWithInv(currentPlayerIndex int, invIndex int) string
 	seeAll := currentPlayerRole == "fascist" || currentPlayerRole == "hitler" && len(players) < 7
 	for index, player := range players {
 		if gameStarted && (seeAll || index == currentPlayerIndex || index == invIndex) {
-			result += createListElement(player.name, player.role, index)
+			party := player.role
+			if index == invIndex && party == "hitler" {
+				party = "fascist"
+			}
+			result += createListElement(player.name, party, index)
 		} else {
 			result += createListElement(player.name, "", index)
 		}
