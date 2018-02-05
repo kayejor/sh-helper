@@ -64,26 +64,18 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			conn.WriteMessage(websocket.TextMessage, []byte("Game started"))
 			return
 		}
+		conn.WriteMessage(websocket.TextMessage, []byte("Joined"))
 		htmlList := createHTMLListForPlayer(myIndex)
 		conn.WriteMessage(websocket.TextMessage, []byte(htmlList))
 	} else {
-		if len(players) == 10 {
-			conn.WriteMessage(websocket.TextMessage, []byte("Game full"))
+		index, successful := handleNewPlayer(string(playerName), conn)
+		if successful {
+			myIndex = index
+			conn.WriteMessage(websocket.TextMessage, []byte("Joined"))
+			broadcastNames()
+		} else {
 			return
 		}
-		if playersContains(string(playerName)) {
-			conn.WriteMessage(websocket.TextMessage, []byte("Duplicate name"))
-			return
-		}
-		player := Player{
-			ws:   conn,
-			name: string(playerName),
-			role: "",
-		}
-		myIndex = len(players)
-		players = append(players, &player)
-		conn.WriteMessage(websocket.TextMessage, []byte("Joined"))
-		broadcastNames()
 	}
 
 	for {
@@ -113,6 +105,25 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			conn.WriteMessage(websocket.TextMessage, []byte(htmlList))
 		}
 	}
+}
+
+func handleNewPlayer(playerName string, conn *websocket.Conn) (index int, successful bool) {
+	if len(players) == 10 {
+		conn.WriteMessage(websocket.TextMessage, []byte("Game full"))
+		return -1, false
+	}
+	if playersContains(playerName) {
+		conn.WriteMessage(websocket.TextMessage, []byte("Duplicate name"))
+		return -1, false
+	}
+	player := Player{
+		ws:   conn,
+		name: playerName,
+		role: "",
+	}
+	index = len(players)
+	players = append(players, &player)
+	return index, true
 }
 
 func handleReconnect(playerName string, ws *websocket.Conn) int {

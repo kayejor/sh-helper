@@ -23,18 +23,6 @@ body {
     border-radius: 50px;
 }
 
-#libBtn {
-    background-color: #7070f0;;
-}
-
-#fascBtn {
-    background-color: #f07070;
-}
-
-#hitBtn {
-    background-color: #c07070;
-}
-
 ul {
     list-style-type: none;
     margin: 0;
