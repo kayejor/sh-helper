@@ -5,9 +5,10 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
+	"strconv"
 	"sync"
 	"time"
-	"os"
 
 	"github.com/gorilla/websocket"
 )
@@ -15,29 +16,27 @@ import (
 type Player struct {
 	ws   *websocket.Conn
 	name string
-	team int
+	role string
 }
 
 var players []Player
 var playersMux sync.Mutex
+var gameStarted bool
 
 func main() {
+	gameStarted = false
 	port := os.Getenv("PORT")
 	fs := http.FileServer(http.Dir("public"))
-	http.HandleFunc("/websocket", handleConnections)
 	http.Handle("/", fs)
+	http.HandleFunc("/websocket", handleConnections)
 	rand.Seed(time.Now().UnixNano())
-	http.ListenAndServe(":" + port, nil)
+	http.ListenAndServe(":"+port, nil)
+	log.Println("Server started on port " + port)
 }
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-}
-
-type PlayerRole struct {
-	Name string `json:"name"`
-	Role int    `json:"role"`
 }
 
 func handleConnections(w http.ResponseWriter, r *http.Request) {
@@ -49,17 +48,26 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	var msg PlayerRole
-	err = conn.ReadJSON(&msg)
+	if gameStarted {
+		conn.WriteMessage(websocket.TextMessage, []byte("Game started"))
+		return
+	}
+
+	if len(players) == 10 {
+		conn.WriteMessage(websocket.TextMessage, []byte("Game full"))
+		return
+	}
+
+	//when websocket is opened, client sends us the player name
+	_, playerName, err := conn.ReadMessage()
 	if err != nil {
-		log.Fatal("problem with message")
-		log.Fatal(msg)
+		log.Fatal("problem with name message")
 		return
 	}
 	player := Player{
 		ws:   conn,
-		name: string(msg.Name),
-		team: msg.Role,
+		name: string(playerName),
+		role: "",
 	}
 	players = append(players, player)
 	broadcastNames()
@@ -69,24 +77,62 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			removeConnection(conn)
 			broadcastNames()
+			if len(players) == 0 {
+				gameStarted = false
+			}
 		}
+
 		if string(msg) == "start" {
-			presentInformationToAllPlayers()
+			if len(players) >= 5 {
+				startGame()
+			} else {
+				conn.WriteMessage(websocket.TextMessage, []byte("Not enough players"))
+			}
+		} else {
+			invIndex, _ := strconv.Atoi(string(msg))
+			htmlList := createHTMLListForPlayerWithInv(player, invIndex)
+			conn.WriteMessage(websocket.TextMessage, []byte(htmlList))
 		}
 	}
 }
 
+func startGame() {
+	gameStarted = true
+	assignRoles()
+	broadcastNames()
+}
+
+func assignRoles() {
+	playersMux.Lock()
+
+	numberOfPlayers := len(players)
+	randPerm := rand.Perm(numberOfPlayers)
+	numberOfLiberals := numberOfPlayers/2 + 1
+	for i := 0; i < numberOfPlayers; i++ {
+		if randPerm[i] == 0 {
+			players[i].role = "hitler"
+		} else if randPerm[i] > numberOfLiberals {
+			players[i].role = "fascist"
+		} else {
+			players[i].role = "liberal"
+		}
+	}
+
+	playersMux.Unlock()
+}
+
 func broadcastNames() {
 	playersMux.Lock()
-	var namesHTML = createHTMLListFromNames()
 	for _, player := range players {
-		player.ws.WriteMessage(websocket.TextMessage, []byte(namesHTML))
+		htmlList := createHTMLListForPlayer(player)
+		player.ws.WriteMessage(websocket.TextMessage, []byte(htmlList))
 	}
 	playersMux.Unlock()
 }
 
 func removeConnection(conn *websocket.Conn) {
 	playersMux.Lock()
+	//len(players) has a max of 10
 	for index := 0; index < len(players); index++ {
 		if conn == players[index].ws {
 			players = append(players[:index], players[index+1:]...)
@@ -96,42 +142,24 @@ func removeConnection(conn *websocket.Conn) {
 	playersMux.Unlock()
 }
 
-func createHTMLListFromNames() string {
+func createHTMLListForPlayer(currentPlayer Player) string {
+	return createHTMLListForPlayerWithInv(currentPlayer, -1)
+}
+
+func createHTMLListForPlayerWithInv(currentPlayer Player, invIndex int) string {
 	var result = ""
-	for _, player := range players {
-		result += "<li>" + player.name + "</li>"
-	}
-	return result
-}
-
-func createAllKnowingList() string {
-	var result = ""
-	for _, player := range players {
-		result += "<li class=" + getClass(player.team) + ">" + player.name + "</li>"
-	}
-	return result
-}
-
-func getClass(i int) string {
-	if i == 0 {
-		return "liberal"
-	} else if i == 1 {
-		return "fascist"
-	} else {
-		return "hitler"
-	}
-}
-
-func presentInformationToAllPlayers() {
-	playersMux.Lock()
-	var namesHTML = createHTMLListFromNames()
-	var allKnowingNamesHTML = createAllKnowingList()
-	for _, player := range players {
-		if player.team == 1 || player.team == 2 && len(players) < 7 {
-			player.ws.WriteMessage(websocket.TextMessage, []byte(allKnowingNamesHTML))
+	seeAll := currentPlayer.role == "fascist" || currentPlayer.role == "hitler" && len(players) < 7
+	for index, player := range players {
+		if gameStarted && (seeAll || currentPlayer == player || index == invIndex) {
+			result += createListElement(player.name, player.role, index)
 		} else {
-			player.ws.WriteMessage(websocket.TextMessage, []byte(namesHTML))
+			result += createListElement(player.name, "", index)
 		}
 	}
-	playersMux.Unlock()
+	return result
+}
+
+func createListElement(value string, class string, index int) string {
+	onclick := "javascript:sendInvestigationMessage(" + string(index) + ")"
+	return "<li class=\"" + class + "\" onclick=\"" + onclick + "\">" + value + "</li>"
 }

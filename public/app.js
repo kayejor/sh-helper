@@ -1,19 +1,17 @@
-function myWebsocketStart(role)
+var ws;
+
+function myWebsocketStart()
 {
-	console.log(location.host);
-    var ws = new WebSocket("ws://" + location.host + "/websocket");
+    ws = new WebSocket("ws://" + location.host + "/websocket");
 
     ws.onopen = function() {
         var name = document.getElementById("name").value;
-        var json = '{"name":"' + name + '", "role":' + role + '}';
-        ws.send(json);
+        ws.send(name);
         document.getElementById("name").remove();
-        document.getElementById("libBtn").remove();
-        document.getElementById("fascBtn").remove();
-        document.getElementById("hitBtn").remove();
+        document.getElementById("enterBtn").remove();
         
         var button = document.createElement("button");
-        button.innerHTML = "Start!";
+        button.innerHTML = "START";
         button.className = "button";
         button.addEventListener ("click", function() {
         ws.send("start");
@@ -23,12 +21,22 @@ function myWebsocketStart(role)
 
     ws.onmessage = function (evt)
     {
-        var personList = document.getElementById("personList");
-        personList.innerHTML = (evt.data);
+        if(evt.data == "Not enough players" || 
+        evt.data == "Game full" ||
+        evt.data == "Game started") {
+            alert(evt.data);
+        } else {
+            var personList = document.getElementById("personList");
+            personList.innerHTML = (evt.data);
+        }
     };
 
     ws.onclose = function()
     {
         console.log("I am now closed");
     };
+}
+
+function sendInvestigationMessage(index) {
+    ws.send(index);
 }
