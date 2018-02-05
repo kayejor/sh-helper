@@ -30,9 +30,40 @@ func main() {
 	http.Handle("/", fs)
 	http.HandleFunc("/websocket", handleConnections)
 	rand.Seed(time.Now().UnixNano())
+	populateTempData() //temporary!
 	fmt.Println("Server starting on port " + port)
 	http.ListenAndServe(":"+port, nil)
 	fmt.Println("Server stopped")
+}
+
+func populateTempData() {
+	player1 := Player{
+		ws:   nil,
+		name: "A",
+		role: "",
+	}
+	players = append(players, &player1)
+
+	player2 := Player{
+		ws:   nil,
+		name: "B",
+		role: "",
+	}
+	players = append(players, &player2)
+
+	player3 := Player{
+		ws:   nil,
+		name: "C",
+		role: "",
+	}
+	players = append(players, &player3)
+
+	player4 := Player{
+		ws:   nil,
+		name: "D",
+		role: "",
+	}
+	players = append(players, &player4)
 }
 
 var upgrader = websocket.Upgrader{
@@ -64,6 +95,8 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			conn.WriteMessage(websocket.TextMessage, []byte("Game started"))
 			return
 		}
+		htmlList := createHTMLListForPlayer(myIndex)
+		conn.WriteMessage(websocket.TextMessage, []byte(htmlList))
 	} else {
 		if len(players) == 10 {
 			conn.WriteMessage(websocket.TextMessage, []byte("Game full"))
@@ -89,7 +122,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			if !gameStarted {
 				removePlayer(conn)
 				broadcastNames()
-			} else if connectionCount() > 0 {
+			} else if connectionCount() > 1 {
 				//wait for reconnect
 				removeConnection(conn)
 			} else {
@@ -97,6 +130,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				players = players[:0]
 				gameStarted = false
 			}
+			return
 		}
 
 		if string(msg) == "start" {
@@ -139,6 +173,7 @@ func connectionCount() int {
 			result++
 		}
 	}
+	fmt.Printf("%d", result)
 	return result
 }
 
@@ -170,8 +205,10 @@ func assignRoles() {
 func broadcastNames() {
 	playersMux.Lock()
 	for index, player := range players {
-		htmlList := createHTMLListForPlayer(index)
-		player.ws.WriteMessage(websocket.TextMessage, []byte(htmlList))
+		if player.ws != nil {
+			htmlList := createHTMLListForPlayer(index)
+			player.ws.WriteMessage(websocket.TextMessage, []byte(htmlList))
+		}
 	}
 	playersMux.Unlock()
 }
@@ -194,7 +231,7 @@ func removeConnection(conn *websocket.Conn) {
 	for _, player := range players {
 		if conn == player.ws {
 			player.ws = nil
-			return
+			break
 		}
 	}
 

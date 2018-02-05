@@ -6,7 +6,7 @@ function myWebsocketStart()
 
     ws.onopen = function() {
         var name = document.getElementById("name").value;
-        ws.send(name);
+        ws.send(name.toUpperCase());
         document.getElementById("name").remove();
         document.getElementById("enterBtn").remove();
         
