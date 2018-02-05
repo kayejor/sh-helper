@@ -82,6 +82,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		}
 		myIndex = len(players)
 		players = append(players, &player)
+		conn.WriteMessage(websocket.TextMessage, []byte("Joined"))
 		broadcastNames()
 	}
 
@@ -95,9 +96,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				//wait for reconnect
 				removeConnection(conn)
 			} else {
-				//end the game
-				players = players[:0]
-				gameStarted = false
+				endGame()
 			}
 			return
 		}
@@ -149,6 +148,11 @@ func startGame() {
 	gameStarted = true
 	assignRoles()
 	broadcastNames()
+}
+
+func endGame() {
+	players = players[:0]
+	gameStarted = false
 }
 
 func assignRoles() {
