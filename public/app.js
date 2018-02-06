@@ -20,14 +20,17 @@ function myWebsocketStart()
         } else if (evt.data == "Joined"){
             document.getElementById("name").remove();
             document.getElementById("enterBtn").remove();
-        
+        } else if (evt.data == "First") {
             var button = document.createElement("button");
             button.innerHTML = "START";
             button.className = "button";
+            button.id = "startBtn";
             button.addEventListener ("click", function() {
-            ws.send("start");
+                ws.send("start");
             });
             document.getElementsByTagName("body")[0].appendChild(button);
+        } else if (evt.data == "Started") {
+            document.getElementById("startBtn").remove();
         } else {
             var personList = document.getElementById("personList");
             personList.innerHTML = (evt.data);

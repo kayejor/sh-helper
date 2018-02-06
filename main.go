@@ -72,6 +72,9 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		if successful {
 			myIndex = index
 			conn.WriteMessage(websocket.TextMessage, []byte("Joined"))
+			if myIndex == 0 {
+				conn.WriteMessage(websocket.TextMessage, []byte("First"))
+			}
 			broadcastNames()
 		} else {
 			return
@@ -157,6 +160,7 @@ func connectionCount() int {
 
 func startGame() {
 	gameStarted = true
+	players[0].ws.WriteMessage(websocket.TextMessage, []byte("Started"))
 	assignRoles()
 	broadcastNames()
 }
