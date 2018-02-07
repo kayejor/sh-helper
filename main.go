@@ -29,6 +29,7 @@ func main() {
 	fs := http.FileServer(http.Dir("public"))
 	http.Handle("/", fs)
 	http.HandleFunc("/websocket", handleConnections)
+	http.HandleFunc("/end", handleGameEnd)
 	rand.Seed(time.Now().UnixNano())
 	fmt.Println("Server starting on port " + port)
 	http.ListenAndServe(":"+port, nil)
@@ -38,6 +39,11 @@ func main() {
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+}
+
+func handleGameEnd(w http.ResponseWriter, r *http.Request) {
+	endGame()
+	http.Redirect(w, r, "/", 302)
 }
 
 func handleConnections(w http.ResponseWriter, r *http.Request) {
@@ -87,11 +93,9 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			if !gameStarted {
 				removePlayer(conn)
 				broadcastNames()
-			} else if connectionCount() > 1 {
+			} else {
 				//wait for reconnect
 				removeConnection(conn)
-			} else {
-				endGame()
 			}
 			return
 		}
