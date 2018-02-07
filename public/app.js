@@ -44,5 +44,7 @@ function myWebsocketStart()
 }
 
 function sendInvestigationMessage(index) {
-    ws.send(index);
+    if(confirm("Are you sure you want to investigate?")) {
+        ws.send(index);
+    }
 }
