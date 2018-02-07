@@ -52,7 +52,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	//when websocket is opened, client sends us the player name
 	_, playerName, err := conn.ReadMessage()
 	if err != nil {
-		log.Fatal("problem with name message")
+		log.Println("problem with name message")
 		return
 	}
 
@@ -247,7 +247,18 @@ func createHTMLListForPlayerWithInv(currentPlayerIndex int, invIndex int) string
 	return result
 }
 
-func createListElement(value string, class string, index int) string {
+func createListElement(name string, class string, index int) string {
 	onclick := "javascript:sendInvestigationMessage(" + strconv.Itoa(index) + ")"
-	return "<li class=\"" + class + "\" onclick=\"" + onclick + "\">" + value + "</li>"
+	nameDiv := fmt.Sprintf("<div class=\"listName\">%s</div>", name)
+	logoDiv := createLogoDiv(class)
+	return fmt.Sprintf("<li class=\"%s\" onclick=\"%s\">%s%s</li>",
+		class, onclick, logoDiv, nameDiv)
+}
+
+func createLogoDiv(class string) string {
+	party := class
+	if party == "hitler" {
+		party = "fascist"
+	}
+	return fmt.Sprintf("<div class=\"logo %s\"></div>", party)
 }
