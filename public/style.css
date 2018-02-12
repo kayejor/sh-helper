@@ -22,7 +22,7 @@ body {
     text-transform: uppercase;
     width:90%;
     opacity: 0.6;
-    font-family: "Helvetica Narrow","Arial Narrow",Tahoma,Arial,Helvetica,sans-serif;
+    font-family: GermaniaOne-Regular;
 }
 .button {
     background-color: green;
@@ -35,6 +35,7 @@ body {
     width: 100%;
     border-radius: 50px;
     opacity: 0.7;
+    font-family: GermaniaOne-Regular;
 }
 
 ul {
