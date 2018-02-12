@@ -1,13 +1,35 @@
 var ws;
 
-function myWebsocketStart()
+function createGame() {
+    var gameName = document.getElementById("gameName").value;
+    callServerCreateGame(gameName); //this func will join game after creating
+}
+
+function callServerCreateGame(gameName) {
+    var http = new XMLHttpRequest();
+    http.open("POST", "/create", true);
+    http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    http.onreadystatechange = function () {
+        if(http.readyState == 4 && http.status == 200) {
+            if(http.responseText == "Game already exists") {
+                alert(http.responseText);
+            } else {
+                joinGame();
+            }
+        }
+    }
+    http.send("gameName=" + gameName.toUpperCase());
+}
+
+function joinGame()
 {
     ws = new WebSocket("ws://" + location.host + "/websocket");
 
     ws.onopen = function() {
+        var gameName = document.getElementById("gameName").value;
         var name = document.getElementById("name").value;
-        ws.send(name.toUpperCase());
-        
+        var messageJson = '{"gameName":"' + gameName.toUpperCase() + '", "name":"' + name.toUpperCase() + '"}';
+        ws.send(messageJson);
     }
 
     ws.onmessage = function (evt)
@@ -15,11 +37,14 @@ function myWebsocketStart()
         if(evt.data == "Not enough players" || 
         evt.data == "Game full" ||
         evt.data == "Game started" ||
-        evt.data == "Duplicate name") {
+        evt.data == "Duplicate name" ||
+        evt.data == "Game does not exist") {
             alert(evt.data);
         } else if (evt.data == "Joined"){
+            document.getElementById("gameName").remove();
             document.getElementById("name").remove();
-            document.getElementById("enterBtn").remove();
+            document.getElementById("createBtn").remove();
+            document.getElementById("joinBtn").remove();
         } else if (evt.data == "First") {
             var button = document.createElement("button");
             button.innerHTML = "START";

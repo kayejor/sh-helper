@@ -12,7 +12,7 @@ body {
     height: 500px;
 }
 
-#name {
+.nameEntry {
     text-align: center;
     border: none;
     font-size: 120px;

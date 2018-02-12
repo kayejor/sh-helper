@@ -13,23 +13,32 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type Game struct {
+	players     []*Player
+	plaersMutex sync.Mutex
+	gameStarted bool
+}
+
 type Player struct {
 	ws   *websocket.Conn
 	name string
 	role string
 }
 
-var players []*Player
-var playersMux sync.Mutex
-var gameStarted bool
+type JoinMessage struct {
+	GameName string `json:"gameName"`
+	Name     string `json:"name"`
+}
+
+var games = make(map[string]*Game)
 
 func main() {
-	gameStarted = false
 	port := os.Getenv("PORT")
 	fs := http.FileServer(http.Dir("public"))
 	http.Handle("/", fs)
 	http.HandleFunc("/websocket", handleConnections)
 	http.HandleFunc("/end", handleGameEnd)
+	http.HandleFunc("/create", handleCreateGame)
 	rand.Seed(time.Now().UnixNano())
 	fmt.Println("Server starting on port " + port)
 	http.ListenAndServe(":"+port, nil)
@@ -41,8 +50,29 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+func handleCreateGame(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		log.Println("Error parsing request")
+		return
+	}
+	gameName := r.Form.Get("gameName")
+
+	if _, exists := games[gameName]; exists {
+		w.Write([]byte("Game already exists"))
+	} else {
+		log.Printf("Creating game %s", gameName)
+		game := Game{
+			gameStarted: false,
+		}
+		games[gameName] = &game
+	}
+}
+
 func handleGameEnd(w http.ResponseWriter, r *http.Request) {
-	endGame()
+	//for now just use this to end ALL game
+	for game := range games {
+		delete(games, game)
+	}
 	http.Redirect(w, r, "/", 302)
 }
 
@@ -55,132 +85,125 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	//when websocket is opened, client sends us the player name
-	_, playerName, err := conn.ReadMessage()
+	var joinMessage JoinMessage
+	err = conn.ReadJSON(&joinMessage)
 	if err != nil {
-		log.Println("problem with name message")
+		log.Println("problem with initial message")
 		return
 	}
 
-	var myIndex = -1
+	game, exists := games[joinMessage.GameName]
+	if !exists {
+		sendMessageToClient(conn, "Game does not exist")
+		return
+	}
 
-	if gameStarted {
-		myIndex = handleReconnect(string(playerName), conn)
-		if myIndex == -1 {
-			conn.WriteMessage(websocket.TextMessage, []byte("Game started"))
-			return
-		}
-		conn.WriteMessage(websocket.TextMessage, []byte("Joined"))
-		htmlList := createHTMLListForPlayer(myIndex)
-		conn.WriteMessage(websocket.TextMessage, []byte(htmlList))
-	} else {
-		index, successful := handleNewPlayer(string(playerName), conn)
-		if successful {
-			myIndex = index
-			conn.WriteMessage(websocket.TextMessage, []byte("Joined"))
-			if myIndex == 0 {
-				conn.WriteMessage(websocket.TextMessage, []byte("First"))
-			}
-			broadcastNames()
-		} else {
-			return
-		}
+	var thisPlayer *Player
+	thisPlayer = joinGame(game, joinMessage.Name, conn)
+	if thisPlayer == nil {
+		return
 	}
 
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			if !gameStarted {
-				removePlayer(conn)
-				broadcastNames()
+			if !game.gameStarted {
+				removePlayer(game, thisPlayer)
+				broadcastNames(game)
 			} else {
 				//wait for reconnect
-				removeConnection(conn)
+				removeConnection(game, thisPlayer)
 			}
 			return
 		}
 
 		if string(msg) == "start" {
-			if len(players) >= 5 {
-				startGame()
+			if len(game.players) >= 5 {
+				startGame(game)
 			} else {
-				conn.WriteMessage(websocket.TextMessage, []byte("Not enough players"))
+				sendMessageToClient(conn, "Not enough players")
 			}
 		} else {
 			invIndex, _ := strconv.Atoi(string(msg))
-			htmlList := createHTMLListForPlayerWithInv(myIndex, invIndex)
-			conn.WriteMessage(websocket.TextMessage, []byte(htmlList))
+			htmlList := createHTMLListForPlayerWithInv(game, thisPlayer, invIndex)
+			sendMessageToClient(conn, htmlList)
 		}
 	}
 }
 
-func handleNewPlayer(playerName string, conn *websocket.Conn) (index int, successful bool) {
-	if len(players) == 10 {
-		conn.WriteMessage(websocket.TextMessage, []byte("Game full"))
-		return -1, false
+func joinGame(game *Game, playerName string, conn *websocket.Conn) *Player {
+	var player *Player
+	if game.gameStarted {
+		player = findPlayerInGame(game, playerName)
+		if player == nil || player.ws != nil {
+			sendMessageToClient(conn, "Game started")
+			return nil
+		}
+		player.ws = conn
+		sendMessageToClient(conn, "Joined")
+		htmlList := createHTMLListForPlayer(game, player)
+		sendMessageToClient(conn, htmlList)
+	} else {
+		player = addNewPlayerToGame(game, playerName, conn)
+		if player != nil {
+			sendMessageToClient(conn, "Joined")
+			//for now send "First" to everyone, should eventually only go to the creator
+			sendMessageToClient(conn, "First")
+			broadcastNames(game)
+		} else {
+			return nil
+		}
 	}
-	if playersContains(playerName) {
-		conn.WriteMessage(websocket.TextMessage, []byte("Duplicate name"))
-		return -1, false
+	return player
+}
+
+func sendMessageToClient(conn *websocket.Conn, message string) {
+	conn.WriteMessage(websocket.TextMessage, []byte(message))
+}
+
+func addNewPlayerToGame(game *Game, playerName string, conn *websocket.Conn) *Player {
+	if len(game.players) == 10 {
+		sendMessageToClient(conn, "Game full")
+		return nil
+	}
+	if findPlayerInGame(game, playerName) != nil {
+		sendMessageToClient(conn, "Duplicate name")
+		return nil
 	}
 	player := Player{
 		ws:   conn,
 		name: playerName,
 		role: "",
 	}
-	index = len(players)
-	players = append(players, &player)
-	return index, true
+	game.players = append(game.players, &player)
+	return &player
 }
 
-func handleReconnect(playerName string, ws *websocket.Conn) int {
-	for index, player := range players {
-		if player.ws == nil && player.name == playerName {
-			player.ws = ws
-			return index
+func findPlayerInGame(game *Game, playerName string) *Player {
+	for _, player := range game.players {
+		if player.name == playerName {
+			return player
 		}
 	}
-	return -1
+	return nil
 }
 
-func playersContains(name string) bool {
-	for _, player := range players {
-		if player.name == name {
-			return true
-		}
+func startGame(game *Game) {
+	game.gameStarted = true
+	for _, player := range game.players {
+		sendMessageToClient(player.ws, "Started")
 	}
-	return false
+	assignRoles(game)
+	broadcastNames(game)
 }
 
-func connectionCount() int {
-	var result = 0
-	for _, player := range players {
-		if player.ws != nil {
-			result++
-		}
-	}
-	return result
-}
+func assignRoles(game *Game) {
+	game.plaersMutex.Lock()
 
-func startGame() {
-	gameStarted = true
-	players[0].ws.WriteMessage(websocket.TextMessage, []byte("Started"))
-	assignRoles()
-	broadcastNames()
-}
-
-func endGame() {
-	players = players[:0]
-	gameStarted = false
-}
-
-func assignRoles() {
-	playersMux.Lock()
-
-	numberOfPlayers := len(players)
+	numberOfPlayers := len(game.players)
 	randPerm := rand.Perm(numberOfPlayers)
 	numberOfLiberals := numberOfPlayers/2 + 1
-	for i, player := range players {
+	for i, player := range game.players {
 		if randPerm[i] == 0 {
 			player.role = "hitler"
 		} else if randPerm[i] > numberOfLiberals {
@@ -190,55 +213,56 @@ func assignRoles() {
 		}
 	}
 
-	playersMux.Unlock()
+	game.plaersMutex.Unlock()
 }
 
-func broadcastNames() {
-	playersMux.Lock()
-	for index, player := range players {
+func broadcastNames(game *Game) {
+	game.plaersMutex.Lock()
+	for _, player := range game.players {
 		if player.ws != nil {
-			htmlList := createHTMLListForPlayer(index)
-			player.ws.WriteMessage(websocket.TextMessage, []byte(htmlList))
+			htmlList := createHTMLListForPlayer(game, player)
+			sendMessageToClient(player.ws, htmlList)
 		}
 	}
-	playersMux.Unlock()
+	game.plaersMutex.Unlock()
 }
 
-func removePlayer(conn *websocket.Conn) {
-	playersMux.Lock()
+func removePlayer(game *Game, player *Player) {
+	game.plaersMutex.Lock()
 	//len(players) has a max of 10
-	for index := 0; index < len(players); index++ {
-		if conn == players[index].ws {
-			players = append(players[:index], players[index+1:]...)
+	for index := 0; index < len(game.players); index++ {
+		if player == game.players[index] {
+			game.players = append(game.players[:index], game.players[index+1:]...)
 			break
 		}
 	}
-	playersMux.Unlock()
+	game.plaersMutex.Unlock()
 }
 
-func removeConnection(conn *websocket.Conn) {
-	playersMux.Lock()
+func removeConnection(game *Game, playerToRemove *Player) {
+	game.plaersMutex.Lock()
 
-	for _, player := range players {
-		if conn == player.ws {
+	for _, player := range game.players {
+		if player == playerToRemove {
 			player.ws = nil
 			break
 		}
 	}
 
-	playersMux.Unlock()
+	game.plaersMutex.Unlock()
 }
 
-func createHTMLListForPlayer(currentPlayerIndex int) string {
-	return createHTMLListForPlayerWithInv(currentPlayerIndex, -1)
+func createHTMLListForPlayer(game *Game, currentPlayer *Player) string {
+	return createHTMLListForPlayerWithInv(game, currentPlayer, -1)
 }
 
-func createHTMLListForPlayerWithInv(currentPlayerIndex int, invIndex int) string {
+func createHTMLListForPlayerWithInv(game *Game, currentPlayer *Player, invIndex int) string {
 	var result = ""
-	currentPlayerRole := players[currentPlayerIndex].role
+	players := game.players
+	currentPlayerRole := currentPlayer.role
 	seeAll := currentPlayerRole == "fascist" || currentPlayerRole == "hitler" && len(players) < 7
 	for index, player := range players {
-		if gameStarted && (seeAll || index == currentPlayerIndex || index == invIndex) {
+		if game.gameStarted && (seeAll || player == currentPlayer || index == invIndex) {
 			party := player.role
 			if index == invIndex && party == "hitler" {
 				party = "fascist"

@@ -6,8 +6,10 @@
 </head>
 <body>
     <div id="headerLogo"></div>
-    <input type="text" id="name" placeholder="NAME" maxlength="10" />
-    <button id="enterBtn" class="button" onclick="javascript:myWebsocketStart()">JOIN</button>
+    <input type="text" id="gameName" class="nameEntry" placeholder="GAME NAME" maxlength="10" />
+    <input type="text" id="name" class="nameEntry" placeholder="YOUR NAME" maxlength="10" />
+    <button id="joinBtn" class="button" onclick="javascript:joinGame()">JOIN</button>
+    <button id="createBtn" class="button" onclick="javascript:createGame()">CREATE</button>
     <ul id="personList"></ul>
 </body>
 </html>
