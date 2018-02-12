@@ -43,6 +43,11 @@ ul {
     padding: 10px;
 }
 
+@font-face {
+    font-family: GermaniaOne-Regular;
+    src: url('fonts/GermaniaOne-Regular.ttf')
+}
+
 li {
     margin: 5px;
     background: #c0c0c0;
@@ -53,7 +58,7 @@ li {
     border-radius: 20px;
     text-transform: uppercase;
     opacity: 0.7;
-    font-family: "Helvetica Narrow","Arial Narrow",Tahoma,Arial,Helvetica,sans-serif;
+    font-family: GermaniaOne-Regular;
 }
 
 .listName {
@@ -78,14 +83,15 @@ div.liberal {
 }
 
 li.liberal {
-    background-color: #a0a0f0;
+    background-color: #c0c0f0;
 }
 
 li.hitler {
     background-color: #902020;
-	opacity: 1.0;
+    opacity: 1.0;
+    color: #909090;
 }
 
 li.fascist {
-    background-color: #f0a0a0;
+    background-color: #f0c0c0;
 }
