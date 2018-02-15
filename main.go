@@ -40,9 +40,9 @@ func main() {
 	http.HandleFunc("/end", handleGameEnd)
 	http.HandleFunc("/create", handleCreateGame)
 	rand.Seed(time.Now().UnixNano())
-	fmt.Println("Server starting on port " + port)
+	log.Println("Server starting on port " + port)
 	http.ListenAndServe(":"+port, nil)
-	fmt.Println("Server stopped")
+	log.Println("Server stopped")
 }
 
 var upgrader = websocket.Upgrader{
@@ -150,8 +150,6 @@ func joinGame(game *Game, playerName string, conn *websocket.Conn) *Player {
 			//for now send "First" to everyone, should eventually only go to the creator
 			sendMessageToClient(conn, "First")
 			broadcastNames(game)
-		} else {
-			return nil
 		}
 	}
 	return player

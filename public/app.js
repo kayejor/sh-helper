@@ -64,7 +64,8 @@ function joinGame()
 
     ws.onclose = function()
     {
-        console.log("I am now closed");
+        alert("You have been disconnected");
+        location.reload();
     };
 }
 
