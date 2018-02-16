@@ -1,4 +1,5 @@
 var ws;
+var ingame = false;
 
 function createGame() {
     var gameName = document.getElementById("gameName").value;
@@ -41,6 +42,7 @@ function joinGame()
         evt.data == "Game does not exist") {
             alert(evt.data);
         } else if (evt.data == "Joined"){
+            ingame = true;
             document.getElementById("gameName").remove();
             document.getElementById("name").remove();
             document.getElementById("createBtn").remove();
@@ -64,8 +66,10 @@ function joinGame()
 
     ws.onclose = function()
     {
-        alert("You have been disconnected");
-        location.reload();
+        if(ingame == true) {
+            alert("You have been disconnected");
+            location.reload();
+        }
     };
 }
 
