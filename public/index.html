@@ -6,10 +6,16 @@
 </head>
 <body>
     <div id="headerLogo"></div>
-    <input type="text" id="gameName" class="nameEntry" placeholder="GAME NAME" maxlength="10" />
-    <input type="text" id="name" class="nameEntry" placeholder="YOUR NAME" maxlength="10" />
-    <button id="joinBtn" class="button" onclick="javascript:joinGame()">JOIN</button>
-    <button id="createBtn" class="button" onclick="javascript:createGame()">CREATE</button>
+    <form id="beginForm" action="">
+        <input type="text" id="gameName" class="nameEntry" placeholder="GAME NAME" maxlength="10" />
+        <input type="text" id="name" class="nameEntry" placeholder="YOUR NAME" maxlength="10" />
+        <input type="button" id="joinBtn" class="button" value="JOIN" onclick="javascript:joinGame()" />
+        
+        <div id="createSwitchDiv">
+            <input type="checkbox" id="createSwitch" name="createSwitch" class="switch" onclick="javascript:toggleCreateMode()"/>
+            <label id="createSwitchLabel" for="createSwitch">CREATE NEW GAME?</label>
+        </div>
+    </form>
     <ul id="personList"></ul>
 </body>
 </html>

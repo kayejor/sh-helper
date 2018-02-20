@@ -1,6 +1,19 @@
 var ws;
 var ingame = false;
 
+function toggleCreateMode() {
+    var createMode = document.getElementById("createSwitch").checked;
+    console.log(createMode);
+    var joinBtn = document.getElementById("joinBtn");
+    if(createMode == 1) {
+        joinBtn.value = "CREATE";
+        joinBtn.onclick = createGame;
+    } else {
+        joinBtn.value = "JOIN";
+        joinBtn.onclick = joinGame;
+    }
+}
+
 function createGame() {
     var gameName = document.getElementById("gameName").value;
     callServerCreateGame(gameName); //this func will join game after creating
@@ -43,10 +56,7 @@ function joinGame()
             alert(evt.data);
         } else if (evt.data == "Joined"){
             ingame = true;
-            document.getElementById("gameName").remove();
-            document.getElementById("name").remove();
-            document.getElementById("createBtn").remove();
-            document.getElementById("joinBtn").remove();
+            document.getElementById("beginForm").remove();
         } else if (evt.data == "First") {
             var button = document.createElement("button");
             button.innerHTML = "START";
