@@ -1,5 +1,9 @@
 var ws;
 var ingame = false;
+var name = "";
+var gameName = "";
+var isconnected = false;
+var rememberInv = -1;
 
 function toggleCreateMode() {
     var createMode = document.getElementById("createSwitch").checked;
@@ -15,7 +19,7 @@ function toggleCreateMode() {
 }
 
 function createGame() {
-    var gameName = document.getElementById("gameName").value;
+    gameName = document.getElementById("gameName").value;
     callServerCreateGame(gameName); //this func will join game after creating
 }
 
@@ -40,10 +44,15 @@ function joinGame()
     ws = new WebSocket("ws://" + location.host + "/websocket");
 
     ws.onopen = function() {
-        var gameName = document.getElementById("gameName").value;
-        var name = document.getElementById("name").value;
+        gameNameElt = document.getElementById("gameName");
+        nameElt = document.getElementById("name")
+        if(gameNameElt != null)
+            gameName = gameNameElt.value;
+        if(nameElt != null)
+            name = nameElt.value;
         var messageJson = '{"gameName":"' + gameName.toUpperCase() + '", "name":"' + name.toUpperCase() + '"}';
         ws.send(messageJson);
+        isconnected = true;
     }
 
     ws.onmessage = function (evt)
@@ -56,7 +65,14 @@ function joinGame()
             alert(evt.data);
         } else if (evt.data == "Joined"){
             ingame = true;
-            document.getElementById("beginForm").remove();
+            if(rememberInv >= 0) {
+                if(confirm("Are you sure you want to investigate?")) {
+                    ws.send(rememberInv);
+                }
+                rememberInv = -1;
+            } else {
+                document.getElementById("beginForm").remove();
+            }
         } else if (evt.data == "First") {
             var button = document.createElement("button");
             button.innerHTML = "START";
@@ -76,15 +92,15 @@ function joinGame()
 
     ws.onclose = function()
     {
-        if(ingame == true) {
-            alert("You have been disconnected");
-            location.reload();
-        }
+        isconnected = false;
     };
 }
 
 function sendInvestigationMessage(index) {
-    if(confirm("Are you sure you want to investigate?")) {
+    if(isconnected == false) {
+        joinGame();
+        rememberInv = index;
+    } else if(confirm("Are you sure you want to investigate?")) {
         ws.send(index);
     }
 }

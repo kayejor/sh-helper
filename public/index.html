@@ -6,7 +6,7 @@
 </head>
 <body>
     <div id="headerLogo"></div>
-    <form id="beginForm" action="">
+    <div id="beginForm" action="">
         <input type="text" id="gameName" class="nameEntry" placeholder="GAME NAME" maxlength="10" />
         <input type="text" id="name" class="nameEntry" placeholder="YOUR NAME" maxlength="10" />
         <input type="button" id="joinBtn" class="button" value="JOIN" onclick="javascript:joinGame()" />
@@ -15,7 +15,7 @@
             <input type="checkbox" id="createSwitch" name="createSwitch" class="switch" onclick="javascript:toggleCreateMode()"/>
             <label id="createSwitchLabel" for="createSwitch">CREATE NEW GAME?</label>
         </div>
-    </form>
+    </div>
     <ul id="personList"></ul>
 </body>
 </html>

@@ -139,6 +139,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			invIndex, _ := strconv.Atoi(string(msg))
+			log.Printf("In game %s: %s investigated player %d", game.gameName, thisPlayer.name, invIndex)
 			htmlList := createHTMLListForPlayerWithInv(game, thisPlayer, invIndex)
 			sendMessageToClient(conn, htmlList)
 		}
