@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -122,9 +121,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				} else {
 					broadcastNames(game)
 				}
-			} else {
-				removeConnection(game, thisPlayer) //wait for reconnect
-				log.Printf("Player %s left started game %s", thisPlayer.name, game.gameName)
 			}
 			return
 		}
@@ -133,46 +129,15 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			if len(game.players) >= 5 {
 				log.Printf("Game %s started", game.gameName)
 				startGame(game)
-				go pollGameForPlayers(game, 30) //delete game if all players gone for 30 minutes
 			} else {
 				sendMessageToClient(conn, "Not enough players")
 			}
 		} else {
-			invIndex, _ := strconv.Atoi(string(msg))
-			log.Printf("In game %s: %s investigated player %d", game.gameName, thisPlayer.name, invIndex)
-			htmlList := createHTMLListForPlayerWithInv(game, thisPlayer, invIndex)
-			sendMessageToClient(conn, htmlList)
+			return //any other message confirms the client is done needing us
 		}
 	}
 }
 
 func sendMessageToClient(conn *websocket.Conn, message string) {
 	conn.WriteMessage(websocket.TextMessage, []byte(message))
-}
-
-func pollGameForPlayers(game *Game, idleMinutesToEnd int) {
-	var counter = 0
-	for counter < idleMinutesToEnd {
-		if atLeastOnePlayerConnected(game) {
-			counter = 0
-		} else {
-			counter = counter + 1
-		}
-		time.Sleep(time.Minute)
-	}
-	log.Printf("Game %s idle for %d minutes, ending game", game.gameName, idleMinutesToEnd)
-	endGame(game)
-}
-
-func atLeastOnePlayerConnected(game *Game) bool {
-	for _, player := range game.players {
-		if player.ws != nil {
-			return true
-		}
-	}
-	return false
-}
-
-func endGame(game *Game) {
-	delete(games, game.gameName)
 }

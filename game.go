@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
-	"strconv"
 
 	"github.com/gorilla/websocket"
 )
@@ -13,20 +11,18 @@ func joinGame(game *Game, playerName string, conn *websocket.Conn) *Player {
 	if game.gameStarted {
 		player = findPlayerInGame(game, playerName)
 		if player == nil || player.ws != nil {
-			sendMessageToClient(conn, "Game started")
+			sendMessageToClient(conn, "Game already in progress")
 			return nil
 		}
-		player.ws = conn
 		sendMessageToClient(conn, "Joined")
-		htmlList := createHTMLListForPlayer(game, player)
-		sendMessageToClient(conn, htmlList)
+		//create list and send to client
 	} else {
 		player = addNewPlayerToGame(game, playerName, conn)
 		if player != nil {
 			sendMessageToClient(conn, "Joined")
 			//for now send "First" to everyone, should eventually only go to the creator
 			sendMessageToClient(conn, "First")
-			broadcastNames(game)
+			broadcastNames(game) //maybe change this to just sending the list of players
 		}
 	}
 	return player
@@ -65,7 +61,12 @@ func startGame(game *Game) {
 		sendMessageToClient(player.ws, "Started")
 	}
 	assignRoles(game)
-	broadcastNames(game)
+	//send list of players with roles
+	endGame(game) //for now just remove the game from the server
+}
+
+func endGame(game *Game) {
+	delete(games, game.gameName)
 }
 
 func assignRoles(game *Game) {
@@ -91,8 +92,8 @@ func broadcastNames(game *Game) {
 	game.plaersMutex.Lock()
 	for _, player := range game.players {
 		if player.ws != nil {
-			htmlList := createHTMLListForPlayer(game, player)
-			sendMessageToClient(player.ws, htmlList)
+			//get list but again we are just sending this once!
+			//send list to clients, player.ws literally can never be nil here
 		}
 	}
 	game.plaersMutex.Unlock()
@@ -123,6 +124,7 @@ func removeConnection(game *Game, playerToRemove *Player) {
 	game.plaersMutex.Unlock()
 }
 
+/*
 func createHTMLListForPlayer(game *Game, currentPlayer *Player) string {
 	return createHTMLListForPlayerWithInv(game, currentPlayer, -1)
 }
@@ -161,3 +163,4 @@ func createLogoDiv(class string) string {
 	}
 	return fmt.Sprintf("<div class=\"logo %s\"></div>", party)
 }
+*/
