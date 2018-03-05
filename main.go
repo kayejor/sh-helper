@@ -14,10 +14,10 @@ import (
 
 //Game holds the player info, and other game related variables
 type Game struct {
-	players     []*Player
-	plaersMutex sync.Mutex
-	gameStarted bool
-	gameName    string
+	players      []*Player
+	playersMutex sync.Mutex
+	gameStarted  bool
+	gameName     string
 }
 
 //Player holds a pointer to the websocket connection, the player's name, and the player's role if the game has started
@@ -98,7 +98,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	game, exists := games[joinMessage.GameName]
 	if !exists {
-		sendMessageToClient(conn, "Game does not exist")
+		sendErrorMessageToClient(conn, "Game does not exist")
 		return
 	}
 
@@ -130,7 +130,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Game %s started", game.gameName)
 				startGame(game)
 			} else {
-				sendMessageToClient(conn, "Not enough players")
+				sendErrorMessageToClient(conn, "Not enough players")
 			}
 		} else {
 			return //any other message confirms the client is done needing us
@@ -138,6 +138,38 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func sendMessageToClient(conn *websocket.Conn, message string) {
-	conn.WriteMessage(websocket.TextMessage, []byte(message))
+//StringMessage is used to send messages to the client
+type StringMessage struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
+}
+
+//PlayerInfoMessage is used to send the player list to the client
+type PlayerInfoMessage struct {
+	Type    string       `json:"type"`
+	Players []PlayerInfo `json:"players"`
+}
+
+func sendErrorMessageToClient(conn *websocket.Conn, message string) {
+	sendMessageToClient(conn, "error", message)
+}
+
+func sendControlMessageToClient(conn *websocket.Conn, message string) {
+	sendMessageToClient(conn, "control", message)
+}
+
+func sendMessageToClient(conn *websocket.Conn, messageType string, message string) {
+	msg := StringMessage{
+		Type:    messageType,
+		Message: message,
+	}
+	conn.WriteJSON(msg)
+}
+
+func sendPlayerListToClient(conn *websocket.Conn, playerList []PlayerInfo) {
+	msg := PlayerInfoMessage{
+		Type:    "playerInfo",
+		Players: playerList,
+	}
+	conn.WriteJSON(msg)
 }

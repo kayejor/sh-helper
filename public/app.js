@@ -1,13 +1,10 @@
 var ws;
-var ingame = false;
 var name = "";
 var gameName = "";
-var isconnected = false;
-var rememberInv = -1;
+var players;
 
 function toggleCreateMode() {
     var createMode = document.getElementById("createSwitch").checked;
-    console.log(createMode);
     var joinBtn = document.getElementById("joinBtn");
     if(createMode == 1) {
         joinBtn.value = "CREATE";
@@ -49,7 +46,8 @@ function joinGame()
         if(gameNameElt != null)
             gameName = gameNameElt.value;
         if(nameElt != null)
-            name = nameElt.value;
+            name = nameElt.value.toUpperCase();
+        //TODO change this to be idoiomatic
         var messageJson = '{"gameName":"' + gameName.toUpperCase() + '", "name":"' + name.toUpperCase() + '"}';
         ws.send(messageJson);
         isconnected = true;
@@ -57,36 +55,26 @@ function joinGame()
 
     ws.onmessage = function (evt)
     {
-        if(evt.data == "Not enough players" || 
-        evt.data == "Game full" ||
-        evt.data == "Game started" ||
-        evt.data == "Duplicate name" ||
-        evt.data == "Game does not exist") {
-            alert(evt.data);
-        } else if (evt.data == "Joined"){
-            ingame = true;
-            if(rememberInv >= 0) {
-                if(confirm("Are you sure you want to investigate?")) {
-                    ws.send(rememberInv);
-                }
-                rememberInv = -1;
-            } else {
+        var msg = JSON.parse(evt.data);
+        var type = msg["type"];
+        console.log(type);
+        if(type == "error") {
+            alert(msg["message"]);
+        } else if(type == "control") {
+            if(msg["message"] == "Joined") {
                 document.getElementById("beginForm").remove();
+            } else if(msg["message"] == "First") {
+                createStartButton();
+            } else if(msg["message"] == "Start") {
+                document.getElementById("startBtn").remove();
+                createRevealButton();
             }
-        } else if (evt.data == "First") {
-            var button = document.createElement("button");
-            button.innerHTML = "START";
-            button.className = "button";
-            button.id = "startBtn";
-            button.addEventListener ("click", function() {
-                ws.send("start");
-            });
-            document.getElementsByTagName("body")[0].appendChild(button);
-        } else if (evt.data == "Started") {
-            document.getElementById("startBtn").remove();
+        } else if(type == "playerInfo") {
+            players = msg["players"];
+            console.log(players);
+            setPlayerList();
         } else {
-            var personList = document.getElementById("personList");
-            personList.innerHTML = (evt.data);
+            //ignore
         }
     };
 
@@ -96,11 +84,92 @@ function joinGame()
     };
 }
 
+function setPlayerList() {
+    var list = document.getElementById("personList");
+    while(list.firstChild) list.removeChild(list.firstChild);
+    for(var i = 0; i < players.length; i++) {
+        var item = document.createElement('li');
+        item.addEventListener("click", invFunc(i));
+        var logoDiv = document.createElement('div');
+        logoDiv.className += "logo ";
+        item.appendChild(logoDiv);
+        var nameDiv = document.createElement('div');
+        nameDiv.className += "listName";
+        nameDiv.innerText = players[i].name;
+        item.appendChild(nameDiv);
+        list.appendChild(item);
+    }
+}
+
+function invFunc(index) {
+    return function() {
+        sendInvestigationMessage(index);
+    };
+}
+
+function createStartButton() {
+    createButton("START", function() { ws.send("start"); });
+}
+
+function createRevealButton() {
+    createButton("REVEAL", revealRoles);
+}
+
+function createButton(text, onclickFunc) {
+    var button = document.createElement("button");
+    button.innerHTML = text;
+    button.className = "button";
+    button.id = "startBtn";
+    button.addEventListener ("click", onclickFunc);
+    document.getElementsByTagName("body")[0].appendChild(button);
+}
+
+function revealRoles() {
+    var listItems = document.getElementById("personList").getElementsByTagName("li");
+    var me = getMe();
+    var role = players[me]["role"];
+    var amIAllKnowing = (role == "fascist") || (role == "hitler" && players.length < 7);
+    if(amIAllKnowing) {
+        for(var i = 0; i < listItems.length; i++) {
+            revealStart(i);
+        }
+    } else {
+        revealStart(me);
+    }
+}
+
+function getParty(role) {
+    return (role == "hitler" ? "fascist" : role);
+}
+
+function revealStart(index) {
+    var listItems = document.getElementById("personList").getElementsByTagName("li");
+    var role = players[index]["role"];
+    reveal(listItems[index], role);
+}
+
+function revealInv(index) {
+    var listItems = document.getElementById("personList").getElementsByTagName("li");
+    var role = getParty(players[index]["role"]);
+    reveal(listItems[index], role);
+}
+
+function reveal(item, role) {
+    console.log(item);
+    var party = getParty(role);
+    item.className = role;
+    item.firstChild.className = "logo " + party;
+}
+
+function getMe() {
+    var i = 0;
+    while(players[i]["name"] != name) i++;
+    return i;
+}
+
+//change this to just investigate, all done on client side now
 function sendInvestigationMessage(index) {
-    if(isconnected == false) {
-        joinGame();
-        rememberInv = index;
-    } else if(confirm("Are you sure you want to investigate?")) {
-        ws.send(index);
+    if(confirm("Are you sure you want to investigate?")) {
+        revealInv(index);
     }
 }
