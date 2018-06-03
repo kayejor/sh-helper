@@ -103,7 +103,7 @@ function setPlayerList() {
 
 function invFunc(index) {
     return function() {
-        sendInvestigationMessage(index);
+        investigate(index);
     };
 }
 
@@ -167,8 +167,7 @@ function getMe() {
     return i;
 }
 
-//change this to just investigate, all done on client side now
-function sendInvestigationMessage(index) {
+function investigate(index) {
     if(confirm("Are you sure you want to investigate?")) {
         revealInv(index);
     }

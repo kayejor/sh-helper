@@ -114,13 +114,8 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			if !game.gameStarted {
 				removePlayer(game, thisPlayer)
-				log.Printf("Player %s left game %s", thisPlayer.name, game.gameName)
-				if len(game.players) == 0 {
-					log.Printf("All players gone from game %s before starting", game.gameName)
-					endGame(game)
-				} else {
-					broadcastNames(game)
-				}
+				log.Printf("Player %s disconnected from game %s", thisPlayer.name, game.gameName)
+				handleRemovedPlayer(game)
 			}
 			return
 		}

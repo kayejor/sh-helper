@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"math/rand"
 
 	"github.com/gorilla/websocket"
@@ -58,11 +59,24 @@ func findPlayerInGame(game *Game, playerName string) *Player {
 func startGame(game *Game) {
 	assignRoles(game)
 	broadcastNames(game)
+	game.gameStarted = true
 	for _, player := range game.players {
 		sendControlMessageToClient(player.ws, "Start")
+		player.ws.Close()
 		player.ws = nil
 	}
-	//this is where we set off some kind of timer to only save the game for so long, for now do nothing
+	endGame(game)
+}
+
+func handleRemovedPlayer(game *Game) {
+	game.playersMutex.Lock()
+	if len(game.players) == 0 {
+		log.Printf("Removing game %s", game.gameName)
+		endGame(game)
+	} else {
+		broadcastNames(game)
+	}
+	game.playersMutex.Unlock()
 }
 
 func endGame(game *Game) {
