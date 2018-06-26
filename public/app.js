@@ -47,8 +47,8 @@ function joinGame()
             gameName = gameNameElt.value;
         if(nameElt != null)
             name = nameElt.value.toUpperCase();
-        //TODO change this to be idoiomatic
-        var messageJson = '{"gameName":"' + gameName.toUpperCase() + '", "name":"' + name.toUpperCase() + '"}';
+        var messageJson = JSON.stringify({gameName: gameName.toUpperCase(), name: name.toUpperCase()});
+        console.log(messageJson);
         ws.send(messageJson);
         isconnected = true;
     }
