@@ -57,22 +57,22 @@ function joinGame()
     {
         var msg = JSON.parse(evt.data);
         var type = msg["type"];
-        console.log(type);
         if(type == "error") {
             alert(msg["message"]);
         } else if(type == "control") {
             if(msg["message"] == "Joined") {
                 document.getElementById("beginForm").remove();
-            } else if(msg["message"] == "First") {
-                createStartButton();
             } else if(msg["message"] == "Start") {
-                document.getElementById("startBtn").remove();
+                var startButton = document.getElementById("startBtn");
+                if(startButton != null) startButton.remove();
                 createRevealButton();
             }
         } else if(type == "playerInfo") {
             players = msg["players"];
-            console.log(players);
             setPlayerList();
+            if(getMe() == 0) {
+                createStartButton();
+            }
         } else {
             //ignore
         }
@@ -108,18 +108,24 @@ function invFunc(index) {
 }
 
 function createStartButton() {
-    createButton("START", function() { ws.send("start"); });
+    if(document.getElementById("startBtn") == null) {
+        createButton("START", function() { ws.send("start"); });
+    }
 }
 
 function createRevealButton() {
     createButton("REVEAL", revealRoles);
 }
 
+function createHideButton() {
+    createButton("HIDE", hideRoles);
+}
+
 function createButton(text, onclickFunc) {
     var button = document.createElement("button");
     button.innerHTML = text;
     button.className = "button";
-    button.id = "startBtn";
+    button.id = text.toLowerCase() + "Btn";
     button.addEventListener ("click", onclickFunc);
     document.getElementsByTagName("body")[0].appendChild(button);
 }
@@ -131,21 +137,26 @@ function revealRoles() {
     var amIAllKnowing = (role == "fascist") || (role == "hitler" && players.length < 7);
     if(amIAllKnowing) {
         for(var i = 0; i < listItems.length; i++) {
-            revealStart(i);
+            reveal(listItems[i], players[i]["role"]);
         }
     } else {
-        revealStart(me);
+        reveal(listItems[me], role);
     }
+    document.getElementById("revealBtn").remove();
+    createHideButton();
+}
+
+function hideRoles() {
+    var listItems = document.getElementById("personList").getElementsByTagName("li");
+    for(var i = 0; i < listItems.length; i++) {
+        hide(listItems[i]);
+    }
+    document.getElementById("hideBtn").remove();
+    createRevealButton();
 }
 
 function getParty(role) {
     return (role == "hitler" ? "fascist" : role);
-}
-
-function revealStart(index) {
-    var listItems = document.getElementById("personList").getElementsByTagName("li");
-    var role = players[index]["role"];
-    reveal(listItems[index], role);
 }
 
 function revealInv(index) {
@@ -159,6 +170,11 @@ function reveal(item, role) {
     var party = getParty(role);
     item.className = role;
     item.firstChild.className = "logo " + party;
+}
+
+function hide(item) {
+    item.className = "";
+    item.firstChild.className = "logo ";
 }
 
 function getMe() {

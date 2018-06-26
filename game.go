@@ -19,13 +19,13 @@ func joinGame(game *Game, playerName string, conn *websocket.Conn) *Player {
 		return nil //either way, disconnect
 	}
 
+	game.playersMutex.Lock()
 	player = addNewPlayerToGame(game, playerName, conn)
 	if player != nil {
 		sendControlMessageToClient(conn, "Joined")
-		//for now send "First" to everyone, should eventually only go to the creator
-		sendControlMessageToClient(conn, "First")
 		broadcastNames(game)
 	}
+	game.playersMutex.Unlock()
 	return player
 }
 
@@ -57,6 +57,7 @@ func findPlayerInGame(game *Game, playerName string) *Player {
 }
 
 func startGame(game *Game) {
+	game.playersMutex.Lock()
 	assignRoles(game)
 	broadcastNames(game)
 	game.gameStarted = true
@@ -65,6 +66,7 @@ func startGame(game *Game) {
 		player.ws.Close()
 		player.ws = nil
 	}
+	game.playersMutex.Unlock()
 	endGame(game)
 }
 
@@ -84,8 +86,6 @@ func endGame(game *Game) {
 }
 
 func assignRoles(game *Game) {
-	game.playersMutex.Lock()
-
 	numberOfPlayers := len(game.players)
 	randPerm := rand.Perm(numberOfPlayers)
 	numberOfLiberals := numberOfPlayers/2 + 1
@@ -98,19 +98,15 @@ func assignRoles(game *Game) {
 			player.role = "liberal"
 		}
 	}
-
-	game.playersMutex.Unlock()
 }
 
 func broadcastNames(game *Game) {
-	game.playersMutex.Lock()
 	playerList := createPlayerInfoList(game)
 	for _, player := range game.players {
 		if player.ws != nil {
 			sendPlayerListToClient(player.ws, playerList)
 		}
 	}
-	game.playersMutex.Unlock()
 }
 
 func removePlayer(game *Game, player *Player) {
