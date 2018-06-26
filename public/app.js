@@ -1,7 +1,7 @@
 var ws;
 var name = "";
 var gameName = "";
-var players;
+var players = null;
 
 function toggleCreateMode() {
     var createMode = document.getElementById("createSwitch").checked;
@@ -48,7 +48,6 @@ function joinGame()
         if(nameElt != null)
             name = nameElt.value.toUpperCase();
         var messageJson = JSON.stringify({gameName: gameName.toUpperCase(), name: name.toUpperCase()});
-        console.log(messageJson);
         ws.send(messageJson);
         isconnected = true;
     }
@@ -63,8 +62,7 @@ function joinGame()
             if(msg["message"] == "Joined") {
                 document.getElementById("beginForm").remove();
             } else if(msg["message"] == "Start") {
-                var startButton = document.getElementById("startBtn");
-                if(startButton != null) startButton.remove();
+                destroyStartButton();
                 createRevealButton();
             }
         } else if(type == "playerInfo") {
@@ -72,6 +70,8 @@ function joinGame()
             setPlayerList();
             if(getMe() == 0) {
                 createStartButton();
+            } else {
+                destroyStartButton();
             }
         } else {
             //ignore
@@ -81,7 +81,21 @@ function joinGame()
     ws.onclose = function()
     {
         isconnected = false;
+        if(players != null && !isGameStarted()) {
+            setTimeout(function(){joinGame()}, 1000);
+        }
     };
+}
+
+function destroyStartButton() {
+    var startButton = document.getElementById("startBtn");
+    if(startButton != null) { 
+        startButton.remove();
+    }
+}
+
+function isGameStarted() {
+    return document.getElementById("revealBtn") != null || document.getElementById("hideBtn") != null;
 }
 
 function setPlayerList() {
@@ -166,7 +180,6 @@ function revealInv(index) {
 }
 
 function reveal(item, role) {
-    console.log(item);
     var party = getParty(role);
     item.className = role;
     item.firstChild.className = "logo " + party;
