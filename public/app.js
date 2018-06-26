@@ -1,13 +1,10 @@
 var ws;
-var ingame = false;
 var name = "";
 var gameName = "";
-var isconnected = false;
-var rememberInv = -1;
+var players = null;
 
 function toggleCreateMode() {
     var createMode = document.getElementById("createSwitch").checked;
-    console.log(createMode);
     var joinBtn = document.getElementById("joinBtn");
     if(createMode == 1) {
         joinBtn.value = "CREATE";
@@ -49,58 +46,158 @@ function joinGame()
         if(gameNameElt != null)
             gameName = gameNameElt.value;
         if(nameElt != null)
-            name = nameElt.value;
-        var messageJson = '{"gameName":"' + gameName.toUpperCase() + '", "name":"' + name.toUpperCase() + '"}';
+            name = nameElt.value.toUpperCase();
+        var messageJson = JSON.stringify({gameName: gameName.toUpperCase(), name: name.toUpperCase()});
         ws.send(messageJson);
         isconnected = true;
     }
 
     ws.onmessage = function (evt)
     {
-        if(evt.data == "Not enough players" || 
-        evt.data == "Game full" ||
-        evt.data == "Game started" ||
-        evt.data == "Duplicate name" ||
-        evt.data == "Game does not exist") {
-            alert(evt.data);
-        } else if (evt.data == "Joined"){
-            ingame = true;
-            if(rememberInv >= 0) {
-                if(confirm("Are you sure you want to investigate?")) {
-                    ws.send(rememberInv);
-                }
-                rememberInv = -1;
-            } else {
+        var msg = JSON.parse(evt.data);
+        var type = msg["type"];
+        if(type == "error") {
+            alert(msg["message"]);
+        } else if(type == "control") {
+            if(msg["message"] == "Joined") {
                 document.getElementById("beginForm").remove();
+            } else if(msg["message"] == "Start") {
+                destroyStartButton();
+                createRevealButton();
             }
-        } else if (evt.data == "First") {
-            var button = document.createElement("button");
-            button.innerHTML = "START";
-            button.className = "button";
-            button.id = "startBtn";
-            button.addEventListener ("click", function() {
-                ws.send("start");
-            });
-            document.getElementsByTagName("body")[0].appendChild(button);
-        } else if (evt.data == "Started") {
-            document.getElementById("startBtn").remove();
+        } else if(type == "playerInfo") {
+            players = msg["players"];
+            setPlayerList();
+            if(getMe() == 0) {
+                createStartButton();
+            } else {
+                destroyStartButton();
+            }
         } else {
-            var personList = document.getElementById("personList");
-            personList.innerHTML = (evt.data);
+            //ignore
         }
     };
 
     ws.onclose = function()
     {
         isconnected = false;
+        if(players != null && !isGameStarted()) {
+            setTimeout(function(){joinGame()}, 1000);
+        }
     };
 }
 
-function sendInvestigationMessage(index) {
-    if(isconnected == false) {
-        joinGame();
-        rememberInv = index;
-    } else if(confirm("Are you sure you want to investigate?")) {
-        ws.send(index);
+function destroyStartButton() {
+    var startButton = document.getElementById("startBtn");
+    if(startButton != null) { 
+        startButton.remove();
+    }
+}
+
+function isGameStarted() {
+    return document.getElementById("revealBtn") != null || document.getElementById("hideBtn") != null;
+}
+
+function setPlayerList() {
+    var list = document.getElementById("personList");
+    while(list.firstChild) list.removeChild(list.firstChild);
+    for(var i = 0; i < players.length; i++) {
+        var item = document.createElement('li');
+        item.addEventListener("click", invFunc(i));
+        var logoDiv = document.createElement('div');
+        logoDiv.className += "logo ";
+        item.appendChild(logoDiv);
+        var nameDiv = document.createElement('div');
+        nameDiv.className += "listName";
+        nameDiv.innerText = players[i].name;
+        item.appendChild(nameDiv);
+        list.appendChild(item);
+    }
+}
+
+function invFunc(index) {
+    return function() {
+        investigate(index);
+    };
+}
+
+function createStartButton() {
+    if(document.getElementById("startBtn") == null) {
+        createButton("START", function() { ws.send("start"); });
+    }
+}
+
+function createRevealButton() {
+    createButton("REVEAL", revealRoles);
+}
+
+function createHideButton() {
+    createButton("HIDE", hideRoles);
+}
+
+function createButton(text, onclickFunc) {
+    var button = document.createElement("button");
+    button.innerHTML = text;
+    button.className = "button";
+    button.id = text.toLowerCase() + "Btn";
+    button.addEventListener ("click", onclickFunc);
+    document.getElementsByTagName("body")[0].appendChild(button);
+}
+
+function revealRoles() {
+    var listItems = document.getElementById("personList").getElementsByTagName("li");
+    var me = getMe();
+    var role = players[me]["role"];
+    var amIAllKnowing = (role == "fascist") || (role == "hitler" && players.length < 7);
+    if(amIAllKnowing) {
+        for(var i = 0; i < listItems.length; i++) {
+            reveal(listItems[i], players[i]["role"]);
+        }
+    } else {
+        reveal(listItems[me], role);
+    }
+    document.getElementById("revealBtn").remove();
+    createHideButton();
+}
+
+function hideRoles() {
+    var listItems = document.getElementById("personList").getElementsByTagName("li");
+    for(var i = 0; i < listItems.length; i++) {
+        hide(listItems[i]);
+    }
+    document.getElementById("hideBtn").remove();
+    createRevealButton();
+}
+
+function getParty(role) {
+    return (role == "hitler" ? "fascist" : role);
+}
+
+function revealInv(index) {
+    var listItems = document.getElementById("personList").getElementsByTagName("li");
+    var role = getParty(players[index]["role"]);
+    reveal(listItems[index], role);
+}
+
+function reveal(item, role) {
+    var party = getParty(role);
+    item.className = role;
+    item.firstChild.className = "logo " + party;
+}
+
+function hide(item) {
+    item.className = "";
+    item.firstChild.className = "logo ";
+}
+
+function getMe() {
+    var i = 0;
+    while(players[i]["name"] != name) i++;
+    return i;
+}
+
+function investigate(index) {
+    if(confirm("Are you sure you want to investigate?")) {
+        revealInv(index);
     }
 }

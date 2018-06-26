@@ -1,9 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"math/rand"
-	"strconv"
 
 	"github.com/gorilla/websocket"
 )
@@ -13,38 +12,36 @@ func joinGame(game *Game, playerName string, conn *websocket.Conn) *Player {
 	if game.gameStarted {
 		player = findPlayerInGame(game, playerName)
 		if player == nil || player.ws != nil {
-			sendMessageToClient(conn, "Game started")
-			return nil
+			sendErrorMessageToClient(conn, "Game already in progress")
+		} else {
+			sendPlayerListToClient(conn, createPlayerInfoList(game))
 		}
-		player.ws = conn
-		sendMessageToClient(conn, "Joined")
-		htmlList := createHTMLListForPlayer(game, player)
-		sendMessageToClient(conn, htmlList)
-	} else {
-		player = addNewPlayerToGame(game, playerName, conn)
-		if player != nil {
-			sendMessageToClient(conn, "Joined")
-			//for now send "First" to everyone, should eventually only go to the creator
-			sendMessageToClient(conn, "First")
-			broadcastNames(game)
-		}
+		return nil //either way, disconnect
 	}
+
+	game.playersMutex.Lock()
+	player = addNewPlayerToGame(game, playerName, conn)
+	if player != nil {
+		sendControlMessageToClient(conn, "Joined")
+		broadcastNames(game)
+	}
+	game.playersMutex.Unlock()
 	return player
 }
 
 func addNewPlayerToGame(game *Game, playerName string, conn *websocket.Conn) *Player {
 	if len(game.players) == 10 {
-		sendMessageToClient(conn, "Game full")
+		sendErrorMessageToClient(conn, "Game full")
 		return nil
 	}
 	if findPlayerInGame(game, playerName) != nil {
-		sendMessageToClient(conn, "Duplicate name")
+		sendErrorMessageToClient(conn, "Duplicate name")
 		return nil
 	}
 	player := Player{
 		ws:   conn,
 		name: playerName,
-		role: "",
+		role: " ",
 	}
 	game.players = append(game.players, &player)
 	return &player
@@ -60,17 +57,35 @@ func findPlayerInGame(game *Game, playerName string) *Player {
 }
 
 func startGame(game *Game) {
-	game.gameStarted = true
-	for _, player := range game.players {
-		sendMessageToClient(player.ws, "Started")
-	}
+	game.playersMutex.Lock()
 	assignRoles(game)
 	broadcastNames(game)
+	game.gameStarted = true
+	for _, player := range game.players {
+		sendControlMessageToClient(player.ws, "Start")
+		player.ws.Close()
+		player.ws = nil
+	}
+	game.playersMutex.Unlock()
+	endGame(game)
+}
+
+func handleRemovedPlayer(game *Game) {
+	game.playersMutex.Lock()
+	if len(game.players) == 0 {
+		log.Printf("Removing game %s", game.gameName)
+		endGame(game)
+	} else {
+		broadcastNames(game)
+	}
+	game.playersMutex.Unlock()
+}
+
+func endGame(game *Game) {
+	delete(games, game.gameName)
 }
 
 func assignRoles(game *Game) {
-	game.plaersMutex.Lock()
-
 	numberOfPlayers := len(game.players)
 	randPerm := rand.Perm(numberOfPlayers)
 	numberOfLiberals := numberOfPlayers/2 + 1
@@ -83,23 +98,19 @@ func assignRoles(game *Game) {
 			player.role = "liberal"
 		}
 	}
-
-	game.plaersMutex.Unlock()
 }
 
 func broadcastNames(game *Game) {
-	game.plaersMutex.Lock()
+	playerList := createPlayerInfoList(game)
 	for _, player := range game.players {
 		if player.ws != nil {
-			htmlList := createHTMLListForPlayer(game, player)
-			sendMessageToClient(player.ws, htmlList)
+			sendPlayerListToClient(player.ws, playerList)
 		}
 	}
-	game.plaersMutex.Unlock()
 }
 
 func removePlayer(game *Game, player *Player) {
-	game.plaersMutex.Lock()
+	game.playersMutex.Lock()
 	//len(players) has a max of 10
 	for index := 0; index < len(game.players); index++ {
 		if player == game.players[index] {
@@ -107,57 +118,23 @@ func removePlayer(game *Game, player *Player) {
 			break
 		}
 	}
-	game.plaersMutex.Unlock()
+	game.playersMutex.Unlock()
 }
 
-func removeConnection(game *Game, playerToRemove *Player) {
-	game.plaersMutex.Lock()
+//PlayerInfo is used for sending the list of players to the client
+type PlayerInfo struct {
+	Name string `json:"name"`
+	Role string `json:"role"`
+}
 
+func createPlayerInfoList(game *Game) []PlayerInfo {
+	var players []PlayerInfo
 	for _, player := range game.players {
-		if player == playerToRemove {
-			player.ws = nil
-			break
+		playerInfo := PlayerInfo{
+			Name: player.name,
+			Role: player.role,
 		}
+		players = append(players, playerInfo)
 	}
-
-	game.plaersMutex.Unlock()
-}
-
-func createHTMLListForPlayer(game *Game, currentPlayer *Player) string {
-	return createHTMLListForPlayerWithInv(game, currentPlayer, -1)
-}
-
-func createHTMLListForPlayerWithInv(game *Game, currentPlayer *Player, invIndex int) string {
-	var result = ""
-	players := game.players
-	currentPlayerRole := currentPlayer.role
-	seeAll := currentPlayerRole == "fascist" || currentPlayerRole == "hitler" && len(players) < 7
-	for index, player := range players {
-		if game.gameStarted && (seeAll || player == currentPlayer || index == invIndex) {
-			party := player.role
-			if index == invIndex && party == "hitler" {
-				party = "fascist"
-			}
-			result += createListElement(player.name, party, index)
-		} else {
-			result += createListElement(player.name, "", index)
-		}
-	}
-	return result
-}
-
-func createListElement(name string, class string, index int) string {
-	onclick := "javascript:sendInvestigationMessage(" + strconv.Itoa(index) + ")"
-	nameDiv := fmt.Sprintf("<div class=\"listName\">%s</div>", name)
-	logoDiv := createLogoDiv(class)
-	return fmt.Sprintf("<li class=\"%s\" onclick=\"%s\">%s%s</li>",
-		class, onclick, logoDiv, nameDiv)
-}
-
-func createLogoDiv(class string) string {
-	party := class
-	if party == "hitler" {
-		party = "fascist"
-	}
-	return fmt.Sprintf("<div class=\"logo %s\"></div>", party)
+	return players
 }
